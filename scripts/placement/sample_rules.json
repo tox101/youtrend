@@ -1,0 +1,21 @@
+{
+    "version": "1.0",
+    "placements": [
+        {
+            "asset_path": "/Game/Background/Props/Rock_01.Rock_01",
+            "transform": {
+                "location": [100, 200, 0],
+                "rotation": [0, 0, 45],
+                "scale": [1.5, 1.5, 1.5]
+            }
+        },
+        {
+            "asset_path": "/Game/Background/Props/Tree_01.Tree_01",
+            "transform": {
+                "location": [-300, 500, 0],
+                "rotation": [0, 0, 90],
+                "scale": [1.0, 1.0, 1.0]
+            }
+        }
+    ]
+}

@@ -1,0 +1,13 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+EXPOSE 3000
+
+# Run Next.js in development mode by default for local development flexibility
+CMD ["npm", "run", "dev"]

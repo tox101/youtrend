@@ -1,0 +1,27 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+youtube.db
+.env
+.env.local
+.env.*.local
+
+# Frontend / Next.js
+node_modules/
+frontend/.next/
+frontend/out/
+
+# Firebase
+.firebase/
+
+# IDE / System
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage

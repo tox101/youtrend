@@ -1,0 +1,127 @@
+version: '3.8'
+
+services:
+  # ========================================================================
+  # PostgreSQL + TimescaleDB — 시계열 파티셔닝 최적화 데이터베이스
+  # ========================================================================
+  db:
+    image: timescale/timescaledb:latest-pg15
+    container_name: yt_platform_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-youtube_global_intel}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # ========================================================================
+  # Redis — Celery Broker + Cache
+  # ========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: yt_platform_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  # ========================================================================
+  # FastAPI Backend — REST API Server
+  # ========================================================================
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: yt_platform_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=db
+      - REDIS_HOST=redis
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+      - AI_PROVIDER=${AI_PROVIDER}
+      - LM_STUDIO_API_BASE=${LM_STUDIO_API_BASE:-http://host.docker.internal:1234/v1}
+      - AI_MODEL_NAME=${AI_MODEL_NAME:-Qwen AgentWorld 35B A3B UD}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+    depends_on:
+      - db
+      - redis
+
+  # ========================================================================
+  # Celery Worker — 분산 비동기 크롤링 및 랭킹 연산 워커
+  # ========================================================================
+  celery-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.crawler
+    container_name: yt_platform_celery_worker
+    restart: always
+    command: celery -A scheduler.celery_app worker --loglevel=info --concurrency=2
+    environment:
+      - DB_HOST=db
+      - REDIS_HOST=redis
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - LM_STUDIO_API_BASE=${LM_STUDIO_API_BASE:-http://host.docker.internal:1234/v1}
+      - AI_MODEL_NAME=${AI_MODEL_NAME:-Qwen AgentWorld 35B A3B UD}
+    depends_on:
+      - db
+      - redis
+
+  # ========================================================================
+  # Celery Beat — 5분 주기 스케줄러 트리거
+  # ========================================================================
+  celery-beat:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.crawler
+    container_name: yt_platform_celery_beat
+    restart: always
+    command: celery -A scheduler.celery_app beat --loglevel=info
+    environment:
+      - DB_HOST=db
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+      - celery-worker
+
+  # ========================================================================
+  # Crawler Scheduler (Legacy Fallback) — Celery 미사용 시 직접 루프 구동
+  # ========================================================================
+  crawler-scheduler:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.crawler
+    container_name: yt_platform_crawler
+    restart: "no"
+    profiles:
+      - legacy
+    environment:
+      - DB_HOST=db
+      - REDIS_HOST=redis
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+    depends_on:
+      - db
+      - redis
+
+  # ========================================================================
+  # Next.js Frontend — 대시보드 UI
+  # ========================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    container_name: yt_platform_frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
