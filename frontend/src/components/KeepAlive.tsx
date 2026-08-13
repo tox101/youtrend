@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { getApiBaseUrl } from "@/lib/api";
+import { getApiBaseUrl, IS_CLOUD_DEPLOY } from "@/lib/api";
 
 /**
  * 전역 Keep-Alive 핑 + 터널 URL 자동 복구 컴포넌트
  * 
- * 60초마다 백엔드에 헬스체크 요청을 보내 Cloudflare 터널의 유휴 타임아웃을 방지합니다.
- * 핑 실패 시 localhost:8000을 통해 최신 터널 URL을 자동으로 발견하고 localStorage를 갱신합니다.
+ * 60초마다 백엔드에 헬스체크 요청을 보내 서버를 활성 상태로 유지합니다.
+ * - 로컬 개발: Cloudflare 터널의 유휴 타임아웃을 방지하고, 핑 실패 시 localhost:8000을 통해
+ *   최신 터널 URL을 자동으로 발견해 localStorage를 갱신합니다.
+ * - 클라우드 배포(IS_CLOUD_DEPLOY): Render URL에 60초 주기로 핑을 보내 Render 무료 플랜의
+ *   idle sleep을 방지합니다 (localhost/터널 복구는 수행하지 않음).
  * 
  * 이 컴포넌트는 UI를 렌더링하지 않으며, layout.tsx에 마운트되어
  * 앱 전체 수명 동안 백그라운드에서 작동합니다.
@@ -38,8 +41,8 @@ export default function KeepAlive() {
         // 실패
       }
 
-      // 2차: 실패 시 localhost 직접 핑
-      if (!success) {
+      // 2차: 실패 시 localhost 직접 핑 + 터널 URL 자동 복구 (로컬 개발 전용)
+      if (!success && !IS_CLOUD_DEPLOY) {
         try {
           const res = await fetch("http://localhost:8000/api/admin/status", {
             cache: "no-store",

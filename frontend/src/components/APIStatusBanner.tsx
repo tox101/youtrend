@@ -2,9 +2,13 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { WifiOff, Wifi, Save, RefreshCw, CheckCircle } from "lucide-react";
+import { IS_CLOUD_DEPLOY } from "@/lib/api";
 
 // ─── 현재 API URL을 런타임에 읽어오는 헬퍼 ────────────────────────────────
 function getApiBaseUrl(): string {
+  if (IS_CLOUD_DEPLOY) {
+    return process.env.NEXT_PUBLIC_API_URL as string;
+  }
   if (typeof window !== "undefined") {
     const saved = window.localStorage.getItem("NEXT_PUBLIC_API_URL");
     if (saved) return saved;
@@ -43,7 +47,7 @@ export default function APIStatusBanner() {
     }
     
     const localhostUrl = "http://localhost:8000/api";
-    if (urlsToTry.indexOf(localhostUrl) === -1) {
+    if (!IS_CLOUD_DEPLOY && urlsToTry.indexOf(localhostUrl) === -1) {
       urlsToTry.push(localhostUrl);
     }
 
@@ -70,8 +74,8 @@ export default function APIStatusBanner() {
       }
     }
 
-    // Phase 2: 모든 URL 실패 → localhost를 통해 최신 터널 URL 자동 발견
-    if (!successUrl) {
+    // Phase 2: 모든 URL 실패 → localhost를 통해 최신 터널 URL 자동 발견 (로컬 개발 전용)
+    if (!successUrl && !IS_CLOUD_DEPLOY) {
       try {
         const tunnelController = new AbortController();
         const tid = setTimeout(() => tunnelController.abort(), 3000);

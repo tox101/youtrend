@@ -1,17 +1,30 @@
-// ─── API URL — localStorage 우선, 없으면 env, 없으면 localhost fallback ──────
+// NEXT_PUBLIC_API_URL이 빌드 타임에 설정된 경우 = 클라우드 배포(고정 API URL) 모드.
+// 이 경우 localStorage에 저장된 이전 터널 URL이 Render URL을 가로채지 않도록
+// 환경변수 URL을 최우선으로 사용하고, 로컬 터널 자동 복구 로직은 비활성화합니다.
+export const IS_CLOUD_DEPLOY =
+  typeof process.env.NEXT_PUBLIC_API_URL === "string" &&
+  process.env.NEXT_PUBLIC_API_URL !== "";
+
+export const DEFAULT_API_BASE_URL = "http://localhost:8000/api";
+
+// ─── API URL — 클라우드: env 우선, 로컬 개발: localStorage → env → localhost ──────
 export function getApiBaseUrl(): string {
+  if (IS_CLOUD_DEPLOY) {
+    return process.env.NEXT_PUBLIC_API_URL as string;
+  }
   if (typeof window !== "undefined") {
     const saved = window.localStorage.getItem("NEXT_PUBLIC_API_URL");
     if (saved) return saved;
   }
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+  return process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_BASE_URL;
 }
 
 // 하위 호환을 위해 상수도 유지
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_BASE_URL;
 
-// ─── 터널 URL 자동 복구: localhost를 통해 현재 활성 터널 URL을 조회 ────
+// ─── 터널 URL 자동 복구: localhost를 통해 현재 활성 터널 URL을 조회 (로컬 개발 전용) ────
 async function discoverTunnelUrl(): Promise<string | null> {
+  if (IS_CLOUD_DEPLOY) return null; // 클라우드 배포에서는 로컬 터널 복구를 사용하지 않습니다.
   try {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), 3000);
@@ -47,10 +60,12 @@ async function resilientFetch(path: string, options?: RequestInit): Promise<Resp
     urlsToTry.push(process.env.NEXT_PUBLIC_API_URL);
   }
   
-  // 3순위: 순수 로컬 개발망 주소
-  const localhostUrl = "http://localhost:8000/api";
-  if (urlsToTry.indexOf(localhostUrl) === -1) {
-    urlsToTry.push(localhostUrl);
+  // 3순위: 순수 로컬 개발망 주소 (클라우드 배포에서는 사용자 PC의 localhost를 검사하지 않음)
+  if (!IS_CLOUD_DEPLOY) {
+    const localhostUrl = DEFAULT_API_BASE_URL;
+    if (urlsToTry.indexOf(localhostUrl) === -1) {
+      urlsToTry.push(localhostUrl);
+    }
   }
 
   let lastError = null;
