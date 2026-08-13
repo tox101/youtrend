@@ -25,25 +25,27 @@ services:
         value: disabled
 
   # ─── 크롤러 + 랭킹 스케줄러 워커 (5분 주기, 상시 구동) ─────────────────────
-  - type: worker
-    name: youtube-intel-crawler
-    runtime: python
-    plan: free
-    buildCommand: |
-      pip install -r requirements.txt
-      python -m playwright install chromium --with-deps || true
-    startCommand: python scheduler/tasks.py
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.9
-      - key: DATABASE_URL
-        fromDatabase:
-          name: youtube-intel-db
-          property: connectionString
-      - key: YOUTUBE_API_KEY
-        sync: false
-      - key: AI_PROVIDER
-        value: disabled
+  # 무료 플랜 배포 이슈로 비활성화. 필요 시 주석 해제 후 재배포하세요.
+  # (백엔드 lifespan이 빈 DB 감지 시 초기 수집을 자동 실행하므로, 서버는 정상 동작합니다)
+  # - type: worker
+  #   name: youtube-intel-crawler
+  #   runtime: python
+  #   plan: free
+  #   buildCommand: |
+  #     pip install -r requirements.txt
+  #     python -m playwright install chromium --with-deps || true
+  #   startCommand: python scheduler/tasks.py
+  #   envVars:
+  #     - key: PYTHON_VERSION
+  #       value: 3.11.9
+  #     - key: DATABASE_URL
+  #       fromDatabase:
+  #         name: youtube-intel-db
+  #         property: connectionString
+  #     - key: YOUTUBE_API_KEY
+  #       sync: false
+  #     - key: AI_PROVIDER
+  #       value: disabled
 
 databases:
   - name: youtube-intel-db
