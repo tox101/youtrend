@@ -3,6 +3,7 @@
 __pycache__/
 *.pyc
 youtube.db
+tunnel_url.json
 .env
 .env.local
 .env.*.local
@@ -20,6 +21,9 @@ frontend/out/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Executables
+*.exe
 
 # Testing
 .pytest_cache/

@@ -15,6 +15,8 @@ class VideoBase(BaseModel):
     tags: Optional[List[str]] = None
     category: Optional[str] = None
     isShort: bool
+    target_age: Optional[str] = None
+    target_gender: Optional[str] = None
 
 class VideoCreate(VideoBase):
     channel_id: str
@@ -30,5 +32,6 @@ class VideoResponse(VideoBase):
     subscriber: int
     last_updated: datetime
     channel: Optional[ChannelResponse] = None
+    is_channel: bool = False
 
     model_config = ConfigDict(from_attributes=True)

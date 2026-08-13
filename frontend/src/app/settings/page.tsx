@@ -11,6 +11,10 @@ export default function SettingsPage() {
   const [ranking, setRanking] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [sysStatus, setSysStatus] = useState<SystemStatus | null>(null);
+  
+  const [apiUrlInput, setApiUrlInput] = useState("");
+  const [currentApiUrl, setCurrentApiUrl] = useState("");
+  const [isCustomApi, setIsCustomApi] = useState(false);
 
   const loadStatus = async () => {
     try {
@@ -23,7 +27,41 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadStatus();
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("NEXT_PUBLIC_API_URL") || "";
+      setCurrentApiUrl(saved || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api");
+      setApiUrlInput(saved);
+      setIsCustomApi(!!saved);
+    }
   }, []);
+
+  const saveApiUrl = () => {
+    if (typeof window !== "undefined") {
+      let url = apiUrlInput.trim();
+      if (url) {
+        if (!url.endsWith("/api") && !url.includes("/api/")) {
+          url = url.replace(/\/$/, "") + "/api";
+        }
+        localStorage.setItem("NEXT_PUBLIC_API_URL", url);
+        setStatus("API 주소가 변경되었습니다. 페이지를 새로고침합니다...");
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        resetApiUrl();
+      }
+    }
+  };
+
+  const resetApiUrl = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("NEXT_PUBLIC_API_URL");
+      setStatus("기본 API 주소로 재설정되었습니다. 페이지를 새로고침합니다...");
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    }
+  };
 
   const runCrawler = async () => {
     setCrawling(true);
@@ -95,6 +133,45 @@ export default function SettingsPage() {
         ) : (
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>시스템 현황 데이터를 받아오고 있습니다...</p>
         )}
+      </div>
+
+      {/* API Connection settings */}
+      <div className="glass-card p-6 space-y-4">
+        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          🔗 백엔드 API 연결 설정
+        </h2>
+        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+          파이어베이스 사이트가 데이터를 불러올 백엔드 API 주소를 설정합니다. 로컬 터널링 주소(예: <code>https://xxxx.lhr.life/api</code>)를 입력하세요.
+        </p>
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="https://your-backend-url.lhr.life/api"
+              value={apiUrlInput}
+              onChange={(e) => setApiUrlInput(e.target.value)}
+              className="flex-1 px-3.5 py-2 rounded-lg border text-xs"
+              style={{ background: "var(--bg-secondary)", borderColor: "var(--border-color)", color: "var(--text-primary)" }}
+            />
+            <button
+              onClick={saveApiUrl}
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition cursor-pointer"
+            >
+              저장 및 반영
+            </button>
+            {isCustomApi && (
+              <button
+                onClick={resetApiUrl}
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 transition cursor-pointer"
+              >
+                기본값 재설정
+              </button>
+            )}
+          </div>
+          <p className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
+            현재 적용된 API 주소: <span className="font-mono text-indigo-400">{currentApiUrl}</span>
+          </p>
+        </div>
       </div>
 
       {/* Control Actions */}

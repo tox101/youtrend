@@ -102,3 +102,25 @@ async def get_system_status(db: AsyncSession = Depends(get_db)):
             "scheduler_interval_minutes": 5
         }
 
+
+import json as _json
+import os as _os
+
+_TUNNEL_URL_FILE = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "tunnel_url.json")
+
+@router.get("/tunnel-url")
+async def get_tunnel_url():
+    """
+    현재 활성 Cloudflare 터널 URL을 반환합니다.
+    프론트엔드가 localhost:8000을 통해 이 엔드포인트를 호출하여
+    터널 URL이 바뀌었을 때 자동으로 최신 URL을 획득할 수 있습니다.
+    """
+    try:
+        if _os.path.exists(_TUNNEL_URL_FILE):
+            with open(_TUNNEL_URL_FILE, "r", encoding="utf-8") as f:
+                data = _json.load(f)
+            return data
+        else:
+            return {"tunnel_url": None, "api_url": None, "updated_at": None}
+    except Exception as e:
+        return {"tunnel_url": None, "api_url": None, "error": str(e)}

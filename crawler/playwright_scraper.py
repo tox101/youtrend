@@ -95,7 +95,9 @@ class PlaywrightScraper:
                     else:
                         logger.warning(f"No videos parsed on attempt {attempt}, retrying...")
             except Exception as e:
+                import traceback
                 logger.error(f"Error on attempt {attempt} for {country_code}: {e}")
+                logger.error(traceback.format_exc())
                 if attempt == retries:
                     raise e
                 time.sleep(2 * attempt)

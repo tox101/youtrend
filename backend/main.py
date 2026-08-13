@@ -6,7 +6,7 @@ import asyncio
 
 # Fix Windows asyncio NotImplementedError for Playwright subprocesses
 if platform.system() == "Windows":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -81,11 +81,12 @@ app = FastAPI(
 )
 
 
-# CORS Configuration for Next.js Frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict to actual frontend domains
-    allow_credentials=True,
+    # Cloudflare Quick Tunnel URL이 매번 변경되므로 전면 개방 처리
+    # (localhost:3000, Firebase Hosting, trycloudflare.com 등 모든 origin 허용)
+    allow_origins=["*"],
+    allow_credentials=False,  # credentials=True와 origins=["*"]는 동시 사용 불가
     allow_methods=["*"],
     allow_headers=["*"],
 )

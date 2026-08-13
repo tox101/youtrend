@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
+import APIStatusBanner from "@/components/APIStatusBanner";
+import KeepAlive from "@/components/KeepAlive";
 
 export const metadata: Metadata = {
   title: "YouTube Global Intelligence Platform",
@@ -26,6 +28,8 @@ export default function RootLayout({
           className="transition-all duration-300 min-h-screen"
           style={{ marginLeft: 240, padding: "24px 32px" }}
         >
+          <APIStatusBanner />
+          <KeepAlive />
           {children}
         </main>
       </body>

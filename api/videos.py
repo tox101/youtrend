@@ -9,15 +9,36 @@ router = APIRouter(prefix="/videos", tags=["Videos"])
 
 @router.get("", response_model=List[VideoResponse])
 async def read_videos(
+    q: Optional[str] = Query(None, description="Search query"),
+    target_age: Optional[str] = Query(None, description="Target age filter ('40대', '50대이상')"),
+    target_gender: Optional[str] = Query(None, description="Target gender filter ('남성', '여성', '공통')"),
+    country_code: Optional[str] = Query(None, description="Country code filter (e.g. 'KR', 'US', 'JP')"),
+    category: Optional[str] = Query(None, description="Category filter ('video', 'shorts', 'channel')"),
+    duration: Optional[str] = Query(None, description="Duration filter ('under_3', '3_to_20', 'over_20')"),
+    publish_date: Optional[str] = Query(None, description="Upload date filter ('today', 'this_week', 'this_month')"),
+    features: Optional[str] = Query(None, description="Features filter ('live', '4k', 'hd')"),
+    sort_by: Optional[str] = Query("relevance", description="Sort by ('relevance', 'popularity')"),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Get a list of all indexed videos with pagination.
+    Get a list of all indexed videos with search query and pagination/filtering.
     """
     service = VideoService(db)
-    videos = await service.get_videos(skip=skip, limit=limit)
+    videos = await service.get_videos_filtered(
+        q=q,
+        target_age=target_age,
+        target_gender=target_gender,
+        country_code=country_code.upper() if country_code else None,
+        category=category,
+        duration=duration,
+        publish_date=publish_date,
+        features=features,
+        sort_by=sort_by,
+        skip=skip,
+        limit=limit
+    )
     return videos
 
 @router.get("/hidden-gems", response_model=List[VideoResponse])

@@ -121,8 +121,8 @@ export default function TrendingPage() {
       ) : (
         <motion.div className="glass-card p-12 text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <TrendingUp size={48} className="mx-auto mb-4 opacity-30" style={{ color: "var(--text-secondary)" }} />
-          <p className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>트렌드 데이터가 아직 없습니다</p>
-          <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>크롤러 실행 후 급상승 영상이 여기에 표시됩니다.</p>
+          <p className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>급상승 트렌드 데이터가 존재하지 않습니다</p>
+          <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>실시간 모니터링 분석 결과가 비어 있습니다.</p>
         </motion.div>
       )}
 

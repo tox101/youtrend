@@ -25,9 +25,9 @@ class YouTubeAPIClient:
 
     def is_quota_error(self, error: HttpError) -> bool:
         """Check if the HTTP error represents a quota limit exceeded error."""
-        if error.resp.status == 403:
+        if error.resp.status in (403, 429):
             content = error.content.decode("utf-8") if isinstance(error.content, bytes) else str(error.content)
-            if "quotaExceeded" in content or "limitExceeded" in content:
+            if any(term in content for term in ("quotaExceeded", "limitExceeded", "rateLimitExceeded")):
                 return True
         return False
 

@@ -14,7 +14,7 @@ export default function RankingPage() {
   const [country, setCountry] = useState<CountryCode>("KR");
   const [period, setPeriod] = useState("daily");
   const [isShorts, setIsShorts] = useState(false);
-  const [limit, setLimit] = useState(50);
+  const [limit, setLimit] = useState(100);
   const [ranks, setRanks] = useState<VideoRank[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -88,10 +88,10 @@ export default function RankingPage() {
         >
           <Trophy size={48} className="mx-auto mb-4 opacity-30" style={{ color: "var(--text-secondary)" }} />
           <p className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-            랭킹 데이터가 아직 없습니다
+            랭킹 데이터가 존재하지 않습니다
           </p>
           <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
-            크롤러 실행 → 랭킹 엔진 실행 후 이 페이지에 순위가 표시됩니다.
+            조건에 부합하는 분석 데이터가 아직 집계되지 않았습니다.
           </p>
         </motion.div>
       )}

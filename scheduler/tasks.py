@@ -6,7 +6,7 @@ import os
 
 # Fix Windows asyncio NotImplementedError for Playwright subprocesses
 if platform.system() == "Windows":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 
 # Adjust python path

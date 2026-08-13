@@ -26,6 +26,8 @@ class Video(Base):
     tags: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True) # list of tags
     category: Mapped[Optional[str]] = mapped_column(nullable=True)
     isShort: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    target_age: Mapped[Optional[str]] = mapped_column(nullable=True, index=True, default="all")
+    target_gender: Mapped[Optional[str]] = mapped_column(nullable=True, index=True, default="공통")
     
     last_updated: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), 

@@ -43,8 +43,12 @@ class RankingEngine:
         comment_rate = (video.comments / video.views) if video.views > 0 else 0.0
 
         # 4. View to Subscriber ratio (shows explosive growth beyond subscriber base)
-        sub_count = video.subscriber if video.subscriber > 0 else 1000  # Default fallback sub
+        #    Playwright 폴백 수집 시 subscriber=0으로 저장되는 경우가 있어,
+        #    불확실한 데이터에 대해 가중치를 감쇠시켜 순위 왜곡을 방지합니다.
+        has_reliable_sub = video.subscriber > 0
+        sub_count = video.subscriber if has_reliable_sub else 5000  # 불확실 시 보수적 기본값
         views_to_sub = video.views / sub_count
+        sub_reliability_factor = 1.0 if has_reliable_sub else 0.5  # 불확실 데이터 페널티
 
         # 5. Time Decay Penalty (weakened for weekly/monthly to surface steady trends)
         if period == "weekly":
@@ -67,7 +71,7 @@ class RankingEngine:
             (w_velocity * min(view_velocity / 100.0, 1000.0)) + # Clip extreme velocity
             (w_like * like_rate * 10000.0) +                    # Scaled to comparable magnitudes
             (w_comment * comment_rate * 50000.0) +
-            (w_sub_ratio * min(views_to_sub * 100.0, 500.0))
+            (w_sub_ratio * min(views_to_sub * 100.0, 500.0) * sub_reliability_factor)  # 불확실 구독자 데이터 감쇠
         ) * decay_factor
 
         return max(raw_score, 0.0)

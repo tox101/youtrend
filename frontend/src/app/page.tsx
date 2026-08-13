@@ -244,11 +244,7 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div className="glass-card p-8 text-center" style={{ color: "var(--text-secondary)" }}>
-              <Trophy size={32} className="mx-auto mb-2 opacity-40" />
-              <p className="text-sm">데이터 수집 중입니다. 잠시만 기다려주세요.</p>
-              <p className="text-xs mt-1">크롤러 실행 후 랭킹이 여기에 표시됩니다.</p>
-            </div>
+            <SkeletonList count={5} />
           )}
         </div>
 
@@ -269,11 +265,7 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div className="glass-card p-8 text-center" style={{ color: "var(--text-secondary)" }}>
-              <Flame size={32} className="mx-auto mb-2 opacity-40" />
-              <p className="text-sm">Shorts 데이터를 아직 수집하지 못했습니다.</p>
-              <p className="text-xs mt-1">Playwright 크롤러가 5분 주기로 수집합니다.</p>
-            </div>
+            <SkeletonList count={5} />
           )}
         </div>
       </div>
