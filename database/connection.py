@@ -17,9 +17,17 @@ DB_NAME = os.getenv("DB_NAME", "youtube_global_intel")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL:
+    # Render 등 클라우드가 제공하는 DATABASE_URL은 postgres:// 또는 postgresql:// 로 시작합니다.
+    # SQLAlchemy는 이를 동기 드라이버(psycopg2)로 해석하므로, 비동기 엔진용으로
+    # postgresql+asyncpg:// 스킴으로 자동 변환합니다.
     ASYNC_DATABASE_URL = DATABASE_URL
-    # For sync connections (alembic, seed), map async driver name back to sync equivalent
-    SYNC_DATABASE_URL = DATABASE_URL.replace("postgresql+asyncpg", "postgresql").replace("sqlite+aiosqlite", "sqlite")
+    if ASYNC_DATABASE_URL.startswith("postgres://"):
+        ASYNC_DATABASE_URL = ASYNC_DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif ASYNC_DATABASE_URL.startswith("postgresql://") and not ASYNC_DATABASE_URL.startswith("postgresql+asyncpg://"):
+        ASYNC_DATABASE_URL = ASYNC_DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+    # Sync connections (alembic, seed) map async driver name back to sync equivalent
+    SYNC_DATABASE_URL = ASYNC_DATABASE_URL.replace("postgresql+asyncpg", "postgresql").replace("sqlite+aiosqlite", "sqlite")
 else:
     # Default PostgreSQL Connection Strings
     SYNC_DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
