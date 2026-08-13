@@ -138,6 +138,32 @@ class AIService:
             analyzed_at=datetime.now(timezone.utc)
         )
 
+    async def _build_fallback_analysis(self, video_id: str, video: Any, velocity: float) -> AIAnalysis:
+        """Builds and persists a default mock analysis to keep the system alive
+        when the AI provider is unreachable (e.g. cloud deployment without LM Studio)."""
+        fallback_mock = AIAnalysis(
+            video_id=video_id,
+            why_popular=f"영상 '{video.title}'은(는) 조회 속도가 시간당 {velocity:.1f}회에 이를 만큼 화제성을 입증했습니다. 시청자의 높은 상호작용율(좋아요 {video.likes:,}개)이 주요 동력입니다.",
+            key_success_factors="1. 직관적인 연출 및 가독성 높은 제목\n2. 트렌드 키워드 결합\n3. 초기 트래픽 유입 속도 가속화",
+            target_audience="유튜브 급상승 차트를 소비하는 일반 대중 및 트렌드 민감층",
+            similar_contents="최신 트렌드 리스트 내 유사 카테고리 급상승 영상",
+            prediction_24h="현재 속도 유지 시 24시간 내 조회수가 추가 상승할 가능성이 매우 큽니다.",
+            improvement_ideas="구독자 유도를 위해 영상 설명 부분의 링크 구조와 카드 안내를 추가할 것을 권장합니다.",
+            analyzed_at=datetime.now(timezone.utc)
+        )
+        try:
+            await self.analysis_repo.save_ai_analysis(fallback_mock)
+            await self.db.commit()
+            return fallback_mock
+        except Exception as db_err:
+            await self.db.rollback()
+            cached = await self.get_cached_analysis(video_id)
+            if cached:
+                logger.info(f"AI Cache Hit (after fallback conflict): Returning saved analysis for video {video_id}")
+                return cached
+            logger.error(f"DB Error saving fallback AI analysis: {db_err}")
+            return fallback_mock
+
     async def generate_analysis(self, video_id: str) -> AIAnalysis:
         """
         Triggers AI analysis.
@@ -166,6 +192,13 @@ class AIService:
         comments = video.comments_list or []
 
         # 3. Request analysis from local LM Studio Qwen Model
+        # 클라우드 배포 환경(Render)에서는 로컬 LM Studio에 접근할 수 없으므로,
+        # AI_PROVIDER=disabled 로 설정하면 즉시 fallback 분석을 반환합니다.
+        provider = os.getenv("AI_PROVIDER", "lm_studio").strip().lower()
+        if provider in ("disabled", "none", "off"):
+            logger.info(f"AI_PROVIDER={provider} — skipping external model call; using fallback analysis for video {video_id}.")
+            return await self._build_fallback_analysis(video_id, video, velocity)
+
         api_base = os.getenv("LM_STUDIO_API_BASE", "http://localhost:1234/v1")
         model_name = os.getenv("AI_MODEL_NAME", "Qwen AgentWorld 35B A3B UD")
         
@@ -218,25 +251,4 @@ class AIService:
         except Exception as e:
             logger.error(f"Failed to communicate with LM Studio API: {e}. Falling back to default mockup.")
             # Fallback to Mockup to prevent API failures from crashing the system
-            fallback_mock = AIAnalysis(
-                video_id=video_id,
-                why_popular=f"영상 '{video.title}'은(는) 조회 속도가 시간당 {velocity:.1f}회에 이를 만큼 화제성을 입증했습니다. 시청자의 높은 상호작용율(좋아요 {video.likes:,}개)이 주요 동력입니다.",
-                key_success_factors="1. 직관적인 연출 및 가독성 높은 제목\n2. 트렌드 키워드 결합\n3. 초기 트래픽 유입 속도 가속화",
-                target_audience="유튜브 급상승 차트를 소비하는 일반 대중 및 트렌드 민감층",
-                similar_contents="최신 트렌드 리스트 내 유사 카테고리 급상승 영상",
-                prediction_24h="현재 속도 유지 시 24시간 내 조회수가 추가 상승할 가능성이 매우 큽니다.",
-                improvement_ideas="구독자 유도를 위해 영상 설명 부분의 링크 구조와 카드 안내를 추가할 것을 권장합니다.",
-                analyzed_at=datetime.now(timezone.utc)
-            )
-            try:
-                await self.analysis_repo.save_ai_analysis(fallback_mock)
-                await self.db.commit()
-                return fallback_mock
-            except Exception as db_err:
-                await self.db.rollback()
-                cached = await self.get_cached_analysis(video_id)
-                if cached:
-                    logger.info(f"AI Cache Hit (after fallback conflict): Returning saved analysis for video {video_id}")
-                    return cached
-                logger.error(f"DB Error saving fallback AI analysis: {db_err}")
-                return fallback_mock
+            return await self._build_fallback_analysis(video_id, video, velocity)

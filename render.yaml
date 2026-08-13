@@ -1,12 +1,20 @@
 services:
+  # ─── FastAPI 백엔드 API 서버 ─────────────────────────────────────────────
   - type: web
     name: youtube-intel-backend
-    env: python
-    buildCommand: pip install -r requirements.txt && python -m playwright install chromium
-    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    runtime: python
+    plan: free
+    buildCommand: |
+      pip install -r requirements.txt
+      python -m playwright install chromium --with-deps || true
+    startCommand: |
+      alembic upgrade head &&
+      python database/seed.py &&
+      uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11
+        value: 3.11.9
       - key: DATABASE_URL
         fromDatabase:
           name: youtube-intel-db
@@ -14,26 +22,31 @@ services:
       - key: YOUTUBE_API_KEY
         sync: false
       - key: AI_PROVIDER
-        value: lm_studio
-      - key: LM_STUDIO_API_BASE
-        value: http://localhost:1234/v1
+        value: disabled
 
+  # ─── 크롤러 + 랭킹 스케줄러 워커 (5분 주기, 상시 구동) ─────────────────────
   - type: worker
     name: youtube-intel-crawler
-    env: python
-    buildCommand: pip install -r requirements.txt && python -m playwright install chromium
+    runtime: python
+    plan: free
+    buildCommand: |
+      pip install -r requirements.txt
+      python -m playwright install chromium --with-deps || true
     startCommand: python scheduler/tasks.py
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11
+        value: 3.11.9
       - key: DATABASE_URL
         fromDatabase:
           name: youtube-intel-db
           property: connectionString
       - key: YOUTUBE_API_KEY
         sync: false
+      - key: AI_PROVIDER
+        value: disabled
 
 databases:
   - name: youtube-intel-db
     databaseName: youtube_intel
     user: youtube_user
+    plan: free

@@ -21,8 +21,18 @@ class DataCollector:
     Saves parsed channel and video records into PostgreSQL database.
     """
     def __init__(self, api_key: Optional[str] = None):
-        self.api_client = YouTubeAPIClient(api_key=api_key)
-        self.scraper = PlaywrightScraper(headless=True)
+        # YouTube API 클라이언트 — 키가 없거나 무효하면 Playwright 전용 모드로 동작
+        try:
+            self.api_client = YouTubeAPIClient(api_key=api_key)
+        except Exception as e:
+            logger.warning(f"YouTube API client unavailable ({e}). Running in Playwright-only mode.")
+            self.api_client = None
+        # Playwright 스크래퍼 — 브라우저 미설치 환경에서는 API 전용 모드로 동작
+        try:
+            self.scraper = PlaywrightScraper(headless=True)
+        except Exception as e:
+            logger.warning(f"Playwright scraper unavailable ({e}). Running in API-only mode.")
+            self.scraper = None
 
     def _parse_datetime(self, date_str: Optional[str]) -> Optional[datetime]:
         """Safely parses ISO 8601 timestamps returned by YouTube API (handles Z, milliseconds, etc.)."""
@@ -238,41 +248,67 @@ class DataCollector:
         logger.info(f"=== Starting collection for Country: {country_code} ===")
         
         # 1. Collect Longform / Standard Trending
-        try:
-            logger.info("Fetching trending via YouTube API...")
-            api_videos = self.api_client.get_trending_videos(country_code, max_results=100)
-            await self._process_api_videos(country_code, api_videos)
-        except YouTubeQuotaExceededException:
-            logger.warning("YouTube API Quota exceeded. Falling back to Playwright Scraper for Longform.")
-            scraped_videos = await self.scraper.scrape_trending(country_code, is_shorts=False, limit=50)
-            await self._process_scraped_videos(country_code, scraped_videos, is_shorts=False)
-        except Exception as e:
-            logger.error(f"Failed to collect API videos for {country_code}: {e}", exc_info=True)
-            # Try Playwright fallback anyways on unexpected API error
+        if self.api_client is not None:
+            try:
+                logger.info("Fetching trending via YouTube API...")
+                api_videos = self.api_client.get_trending_videos(country_code, max_results=100)
+                await self._process_api_videos(country_code, api_videos)
+            except YouTubeQuotaExceededException:
+                logger.warning("YouTube API Quota exceeded. Falling back to Playwright Scraper for Longform.")
+                if self.scraper is not None:
+                    scraped_videos = await self.scraper.scrape_trending(country_code, is_shorts=False, limit=50)
+                    await self._process_scraped_videos(country_code, scraped_videos, is_shorts=False)
+                else:
+                    logger.warning("Playwright scraper unavailable — skipping Longform fallback.")
+            except Exception as e:
+                logger.error(f"Failed to collect API videos for {country_code}: {e}", exc_info=True)
+                # Try Playwright fallback anyways on unexpected API error
+                if self.scraper is not None:
+                    try:
+                        scraped_videos = await self.scraper.scrape_trending(country_code, is_shorts=False, limit=50)
+                        await self._process_scraped_videos(country_code, scraped_videos, is_shorts=False)
+                    except Exception as pe:
+                        logger.error(f"Playwright fallback also failed for {country_code}: {pe}")
+                else:
+                    logger.error(f"Playwright scraper unavailable — cannot fallback for {country_code}.")
+        elif self.scraper is not None:
+            # API 키 없음 → Playwright로만 Longform 수집
+            logger.info("YouTube API unavailable. Collecting Longform via Playwright only.")
             try:
                 scraped_videos = await self.scraper.scrape_trending(country_code, is_shorts=False, limit=50)
                 await self._process_scraped_videos(country_code, scraped_videos, is_shorts=False)
-            except Exception as pe:
-                logger.error(f"Playwright fallback also failed for {country_code}: {pe}")
-
+            except Exception as e:
+                logger.error(f"Playwright-only Longform collection failed for {country_code}: {e}")
+        else:
+            logger.error("No crawler source available for Longform (API & Playwright both disabled).")
+        
         # 2. Collect Shorts Trending
-        try:
-            # Try Playwright first for Shorts
-            logger.info("Scraping Shorts via Playwright...")
-            scraped_shorts = await self.scraper.scrape_trending(country_code, is_shorts=True, limit=50)
-            if scraped_shorts:
-                await self._process_scraped_videos(country_code, scraped_shorts, is_shorts=True)
-            else:
-                # Playwright failed or returned empty — fallback to YouTube API shorts extraction
-                logger.info("Playwright returned empty. Fetching Shorts from YouTube API (short-duration filter)...")
-                await self._collect_shorts_via_api(country_code)
-        except Exception as e:
-            logger.error(f"Failed to collect Shorts for {country_code}: {e}", exc_info=True)
-            # Last resort: try API shorts
+        if self.scraper is not None:
             try:
+                # Try Playwright first for Shorts
+                logger.info("Scraping Shorts via Playwright...")
+                scraped_shorts = await self.scraper.scrape_trending(country_code, is_shorts=True, limit=50)
+                if scraped_shorts:
+                    await self._process_scraped_videos(country_code, scraped_shorts, is_shorts=True)
+                else:
+                    # Playwright failed or returned empty — fallback to YouTube API shorts extraction
+                    logger.info("Playwright returned empty. Fetching Shorts from YouTube API (short-duration filter)...")
+                    await self._collect_shorts_via_api(country_code)
+            except Exception as e:
+                logger.error(f"Failed to collect Shorts for {country_code}: {e}", exc_info=True)
+                # Last resort: try API shorts
+                try:
+                    await self._collect_shorts_via_api(country_code)
+                except Exception:
+                    pass
+        elif self.api_client is not None:
+            try:
+                logger.info("Playwright unavailable. Collecting Shorts via YouTube API only.")
                 await self._collect_shorts_via_api(country_code)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"API-only Shorts collection failed for {country_code}: {e}")
+        else:
+            logger.error("No crawler source available for Shorts (API & Playwright both disabled).")
 
     async def _collect_shorts_via_api(self, country_code: str) -> None:
         """Fetch trending short videos from YouTube Search API by querying multiple localized hashtags and filtering true Shorts (<=60s)."""
